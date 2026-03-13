@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
+import Script from "next/script"; // 추가: Next.js 스크립트 로더
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -35,6 +36,18 @@ export default function Home() {
   const [logs, setLogs] = useState([]);
   const [activeLog, setActiveLog] = useState(null);
   const [weeklyDeposits, setWeeklyDeposits] = useState({});
+
+  // 텔레그램 웹앱 초기화 및 전체화면 확장
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      tg.ready();    // 텔레그램에게 준비 완료 알림
+      tg.expand();   // 전체 화면으로 확장
+      
+      // 텔레그램 테마에 맞게 상단 바 색상 조절 (선택 사항)
+      // tg.setHeaderColor('secondary_bg_color'); 
+    }
+  }, []);
 
   const getTodayDate = () => new Date(new Date().getTime() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
   const getCurrentTime = () => {
@@ -105,7 +118,6 @@ export default function Home() {
       w.actualDeposit = weeklyDeposits[w.weekId] || 0;
       w.insuranceTax = w.income - w.actualDeposit;
       w.netProfit = w.actualDeposit - w.expense;
-      // 주간 시급은 계산하지만 화면에는 표시하지 않음
     });
     
     const mStats = {};
@@ -124,14 +136,12 @@ export default function Home() {
     const monthlyList = Object.values(mStats).sort((a, b) => b.monthId.localeCompare(a.monthId));
     monthlyList.forEach(m => {
       m.margin = m.income > 0 ? ((m.netProfit / m.income) * 100).toFixed(1) : 0;
-      // ⭐️ 월간 시급: 순수익 대비 업무 시간으로 계산
       m.hourlyWage = m.workHours > 0 ? Math.round(m.netProfit / m.workHours) : 0;
     });
     
     return { weeklyList, monthlyList };
   }, [logs, weeklyDeposits]);
 
-  // (입력/수정 로직 등은 이전과 동일하게 유지)
   const handleClockIn = async () => {
     const finalStartTime = startTime || getCurrentTime();
     const { error } = await supabase.from("delivery_logs").insert([{ 
@@ -154,7 +164,7 @@ export default function Home() {
     await supabase.from("delivery_logs").update({
       end_time: finalEndTime, end_mileage: endMileage ? Number(endMileage) : null, work_hours: calculatedWorkHours,
       kakao_picker: Number(kakaoPicker) || 0, coupang_eats: Number(coupangEats) || 0, baemin: Number(baemin) || 0,
-      etc_income_memo: etcIncomeMemo || null, etc_income: Number(etcIncome) || 0, expense_memo: expenseMemo || null, expense: Number(expense) || 0,
+      etc_income_memo: etcIncomeMemo || null, etc_income: Number(etcIncome) || 0, expense_memo: expense_memo || null, expense: Number(expense) || 0,
       status: "completed"
     }).eq("id", activeLog.id);
     alert(`정산 완료!`); fetchData();
@@ -199,6 +209,12 @@ export default function Home() {
 
   return (
     <div style={{ padding: "15px", fontFamily: "sans-serif", maxWidth: "1000px", margin: "0 auto", boxSizing: "border-box" }}>
+      {/* 텔레그램 SDK 로드 */}
+      <Script 
+        src="https://telegram.org/js/telegram-web-app.js" 
+        strategy="beforeInteractive" 
+      />
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #eee", paddingBottom: "10px", marginBottom: "20px" }}>
         <h1 style={{ fontSize: "24px", margin: 0 }}>🛵 나의 배달 일지</h1>
         <button onClick={() => setView(view === 'main' ? 'stats' : 'main')} style={{ background: view === 'main' ? "#4caf50" : "#9e9e9e", color: "#fff", border: "none", padding: "10px 15px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>
