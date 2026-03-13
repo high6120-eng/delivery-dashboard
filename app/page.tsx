@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Script from "next/script";
 
+// Supabase 설정 (환경 변수 끝에 !를 붙여 타입 에러 방지)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -34,14 +35,33 @@ const getWeekInfo = (dateStr: any) => {
 export default function Home() {
   const [view, setView] = useState("main"); 
   const [logs, setLogs] = useState<any[]>([]);
-  const [activeLog, setActiveLog] = useState<any>(null); // any 추가
+  const [activeLog, setActiveLog] = useState<any>(null);
   const [weeklyDeposits, setWeeklyDeposits] = useState<any>({});
+  
+  // 텔레그램 사용자 정보 저장용
+  const [user, setUser] = useState<any>(null);
 
+  // 텔레그램 SDK 초기화
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) {
       tg.ready();
+      
+      // 1. 화면 확장 (기존)
       tg.expand();
+      
+      // 2. 봇파더처럼 '진짜 전체 화면' 요청 (새로 추가)
+      // 이 옵션은 유저가 페이지를 위로 슬라이드했을 때 상단 바를 숨겨줍니다.
+      if (tg.requestFullscreen) {
+        tg.requestFullscreen();
+      }
+
+      // 3. 상단 바 색상을 배경색과 맞추기 (디자인 일관성)
+      tg.setHeaderColor('#f9f9f9'); // 배경색과 동일한 값으로 설정
+      
+      if (tg.initDataUnsafe?.user) {
+        setUser(tg.initDataUnsafe.user);
+      }
     }
   }, []);
 
@@ -64,8 +84,8 @@ export default function Home() {
   const [etcIncome, setEtcIncome] = useState("");
   const [expenseMemo, setExpenseMemo] = useState("");
   const [expense, setExpense] = useState("");
-  const [editLogId, setEditLogId] = useState<any>(null); // any 추가
-  const [editForm, setEditForm] = useState<any>({}); // any 추가
+  const [editLogId, setEditLogId] = useState<any>(null);
+  const [editForm, setEditForm] = useState<any>({});
 
   const fetchData = async () => {
     const { data: workingData } = await supabase.from("delivery_logs").select("*").eq("status", "working").maybeSingle(); 
@@ -91,8 +111,9 @@ export default function Home() {
     await supabase.from("weekly_deposits").upsert({ week_id: weekId, actual_deposit: numVal });
   };
 
+  // 통계 계산 로직
   const statsData = useMemo(() => {
-    const wStats: any = {}; // any 추가
+    const wStats: any = {};
     logs.forEach((log: any) => {
       if (log.status !== 'completed') return;
       const info = getWeekInfo(log.work_date);
@@ -115,7 +136,7 @@ export default function Home() {
       w.netProfit = w.actualDeposit - w.expense;
     });
     
-    const mStats: any = {}; // any 추가
+    const mStats: any = {};
     weeklyList.forEach((w: any) => {
       if (!mStats[w.monthId]) {
         mStats[w.monthId] = { monthId: w.monthId, month: w.month, income: 0, actualDeposit: 0, expense: 0, insuranceTax: 0, netProfit: 0, workHours: 0 };
@@ -210,93 +231,119 @@ export default function Home() {
   };
 
   return (
-    <div style={{ padding: "15px", fontFamily: "sans-serif", maxWidth: "1000px", margin: "0 auto", boxSizing: "border-box" }}>
+    <div style={{ padding: "15px", fontFamily: "sans-serif", maxWidth: "1000px", margin: "0 auto", boxSizing: "border-box", backgroundColor: "#f9f9f9", minHeight: "100vh" }}>
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+      
+      {/* 상단 헤더 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #eee", paddingBottom: "10px", marginBottom: "20px" }}>
-        <h1 style={{ fontSize: "24px", margin: 0 }}>🛵 나의 배달 일지</h1>
-        <button onClick={() => setView(view === 'main' ? 'stats' : 'main')} style={{ background: view === 'main' ? "#4caf50" : "#9e9e9e", color: "#fff", border: "none", padding: "10px 15px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>
-          {view === 'main' ? "📊 통계 보기" : "⬅️ 메인으로"}
+        <div>
+          <h1 style={{ fontSize: "20px", margin: 0 }}>🛵 나의 배달 일지</h1>
+          {user && <p style={{ fontSize: "12px", color: "#0088cc", margin: "5px 0 0 0" }}>반가워요, {user.first_name}님!</p>}
+        </div>
+        <button onClick={() => setView(view === 'main' ? 'stats' : 'main')} style={{ background: view === 'main' ? "#4caf50" : "#9e9e9e", color: "#fff", border: "none", padding: "8px 12px", borderRadius: "8px", fontWeight: "bold", fontSize: "14px" }}>
+          {view === 'main' ? "📊 통계" : "🏠 홈"}
         </button>
       </div>
 
       {view === 'stats' ? (
-        <div>
-          <h2 style={{ color: "#0070f3", borderLeft: "4px solid #0070f3", paddingLeft: "10px" }}>월간 통계 (정산월 기준)</h2>
-          <div style={{ overflowX: "auto", backgroundColor: "#fff", borderRadius: "10px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", marginBottom: "30px" }}>
-            <table style={{ width: "100%", minWidth: "850px", borderCollapse: "collapse", textAlign: "right", fontSize: "14px" }}>
-              <thead>
-                <tr style={{ backgroundColor: "#f8f9fa", borderBottom: "2px solid #ddd", textAlign: "center" }}>
-                  <th>월</th><th>수입</th><th>실제 입금액</th><th>지출</th><th>순수익</th><th>순수익률</th><th>보험료/세금</th><th>시급</th>
+        /* 통계 뷰 */
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <h2 style={{ fontSize: "18px", color: "#0070f3", borderLeft: "4px solid #0070f3", paddingLeft: "10px" }}>월간 요약</h2>
+          <div style={{ overflowX: "auto", backgroundColor: "#fff", borderRadius: "10px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "right" }}>
+              <thead style={{ backgroundColor: "#f8f9fa" }}>
+                <tr>
+                  <th style={{ padding: "10px", textAlign: "center" }}>월</th>
+                  <th style={{ padding: "10px" }}>순수익</th>
+                  <th style={{ padding: "10px" }}>시급</th>
                 </tr>
               </thead>
               <tbody>
                 {statsData.monthlyList.map((m: any) => (
                   <tr key={m.monthId} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ textAlign: "center", fontWeight: "bold" }}>{m.month}월</td>
-                    <td>{m.income.toLocaleString()}원</td>
-                    <td style={{ color: "#2e7d32", fontWeight: "bold" }}>{m.actualDeposit.toLocaleString()}원</td>
-                    <td>{m.expense.toLocaleString()}원</td>
-                    <td style={{ color: "#f57f17", fontWeight: "bold" }}>{m.netProfit.toLocaleString()}원</td>
-                    <td>{m.margin}%</td>
-                    <td style={{ color: "#d32f2f" }}>{m.insuranceTax.toLocaleString()}원</td>
-                    <td style={{ fontWeight: "bold", color: "#0070f3" }}>{m.hourlyWage.toLocaleString()}원</td>
+                    <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>{m.month}월</td>
+                    <td style={{ padding: "10px", color: "#f57f17", fontWeight: "bold" }}>{m.netProfit.toLocaleString()}원</td>
+                    <td style={{ padding: "10px", color: "#0070f3" }}>{m.hourlyWage.toLocaleString()}원</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {/* 주간 통계 부분도 동일하게 map((w: any) 적용 */}
-          <h2 style={{ color: "#d90429", borderLeft: "4px solid #d90429", paddingLeft: "10px" }}>주간 통계 (수~화 기준)</h2>
-          <div style={{ overflowX: "auto", backgroundColor: "#fff", borderRadius: "10px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-            <table style={{ width: "100%", minWidth: "700px", borderCollapse: "collapse", textAlign: "right", fontSize: "14px" }}>
-              <thead>
-                <tr style={{ backgroundColor: "#f8f9fa", borderBottom: "2px solid #ddd", textAlign: "center" }}>
-                  <th>주차</th><th>수입</th><th>실제 입금액</th><th>지출</th><th>보험료/세금</th>
-                </tr>
-              </thead>
-              <tbody>
-                {statsData.weeklyList.map((w: any) => (
-                  <tr key={w.weekId} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ textAlign: "center", fontWeight: "bold" }}>{w.month}월 {w.weekNum}주차</td>
-                    <td>{w.income.toLocaleString()}원</td>
-                    <td><input type="number" defaultValue={w.actualDeposit || ""} onBlur={(e) => handleDepositChange(w.weekId, e.target.value)} style={{ width: "80px" }} /></td>
-                    <td>{w.expense.toLocaleString()}원</td>
-                    <td>{w.insuranceTax.toLocaleString()}원</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <h2 style={{ fontSize: "18px", color: "#d90429", borderLeft: "4px solid #d90429", paddingLeft: "10px" }}>주간 입금 관리</h2>
+          <div style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "10px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+            {statsData.weeklyList.map((w: any) => (
+              <div key={w.weekId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #f0f0f0" }}>
+                <span style={{ fontSize: "14px" }}>{w.month}월 {w.weekNum}주차</span>
+                <input 
+                  type="number" 
+                  placeholder="실제 입금액"
+                  defaultValue={w.actualDeposit || ""} 
+                  onBlur={(e) => handleDepositChange(w.weekId, e.target.value)} 
+                  style={{ width: "100px", padding: "5px", border: "1px solid #4caf50", borderRadius: "5px", textAlign: "right" }} 
+                />
+              </div>
+            ))}
           </div>
         </div>
       ) : (
+        /* 메인 뷰 */
         <div>
-          <div style={{ backgroundColor: "#f0f7ff", padding: "20px", borderRadius: "10px", marginBottom: "30px" }}>
+          {/* 출퇴근 카드 */}
+          <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "15px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", marginBottom: "25px" }}>
             {!activeLog ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <h3>새로운 배달 시작</h3>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                <input type="number" placeholder="주행거리" value={startMileage} onChange={(e) => setStartMileage(e.target.value)} />
-                <button onClick={handleClockIn} style={{ padding: "10px", background: "#0070f3", color: "#fff" }}>🚀 출근하기</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <h3 style={{ margin: "0 0 5px 0", fontSize: "16px" }}>새로운 배달 시작</h3>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }} />
+                  <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }} />
+                </div>
+                <input type="number" placeholder="현재 주행거리(km)" value={startMileage} onChange={(e) => setStartMileage(e.target.value)} style={{ padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }} />
+                <button onClick={handleClockIn} style={{ padding: "14px", backgroundColor: "#0070f3", color: "white", borderRadius: "10px", fontWeight: "bold", border: "none", fontSize: "16px" }}>🚀 출근하기</button>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <h3>🟢 근무 중</h3>
-                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                <input type="number" placeholder="퇴근 주행거리" value={endMileage} onChange={(e) => setEndMileage(e.target.value)} />
-                <button onClick={handleClockOut} style={{ padding: "10px", background: "#d90429", color: "#fff" }}>🏁 퇴근/정산</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <h3 style={{ margin: "0 0 5px 0", fontSize: "16px", color: "#d90429" }}>🟢 근무 중 ({activeLog.start_time})</h3>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }} />
+                  <input type="number" placeholder="종료 주행거리" value={endMileage} onChange={(e) => setEndMileage(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }} />
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input type="number" placeholder="쿠팡" value={coupangEats} onChange={(e) => setCoupangEats(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }} />
+                  <input type="number" placeholder="배민" value={baemin} onChange={(e) => setBaemin(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }} />
+                  <input type="number" placeholder="카카오" value={kakaoPicker} onChange={(e) => setKakaoPicker(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ddd" }} />
+                </div>
+                <button onClick={handleClockOut} style={{ padding: "14px", backgroundColor: "#d90429", color: "white", borderRadius: "10px", fontWeight: "bold", border: "none", fontSize: "16px" }}>🏁 퇴근하고 정산하기</button>
               </div>
             )}
           </div>
-          <h3>과거 일지 ({logs.length}일)</h3>
-          {logs.map((log: any) => (
-             <div key={log.id} style={{ padding: "10px", borderBottom: "1px solid #eee" }}>
-                {log.work_date} - {log.status} 
-                <button onClick={() => startEdit(log)}>수정</button>
-             </div>
-          ))}
+
+          {/* 목록 리스트 */}
+          <h3 style={{ fontSize: "16px", marginBottom: "10px" }}>최근 일지 ({logs.length}일)</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {logs.map((log: any) => {
+              const totalIncome = (log.coupang_eats || 0) + (log.baemin || 0) + (log.kakao_picker || 0) + (log.etc_income || 0);
+              return (
+                <div key={log.id} style={{ backgroundColor: "#fff", padding: "15px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: "bold", fontSize: "14px" }}>{log.work_date}</div>
+                    <div style={{ fontSize: "12px", color: "#666" }}>
+                      {log.status === 'completed' ? `✅ ${totalIncome.toLocaleString()}원 (${log.work_hours}h)` : '🏃 근무 중...'}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "5px" }}>
+                    <button onClick={() => startEdit(log)} style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "12px", backgroundColor: "#fff" }}>수정</button>
+                    <button onClick={() => handleDelete(log.id)} style={{ padding: "6px 10px", borderRadius: "6px", border: "none", fontSize: "12px", backgroundColor: "#fff0f0", color: "#ff4d4f" }}>삭제</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
+      
+      {/* 하단 여백 (모바일 하단 바 대비) */}
+      <div style={{ height: "50px" }}></div>
     </div>
   );
 }
