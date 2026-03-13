@@ -366,7 +366,7 @@ export default function Home() {
                       </div>
                     </div>
                   ) : (
-                    /* 일반 뷰 + 삭제 버튼 복구 */
+                    /* 일반 뷰 + 삭제 버튼 복구  */
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
                         <div style={{ fontWeight: "700", fontSize: "15px", color:"#222" }}>
