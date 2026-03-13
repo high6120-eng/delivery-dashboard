@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const nextConfig: NextConfig = {
+  /* 여기에 Supabase 코드가 있으면 안 됩니다! */
+};
 
 export default nextConfig;

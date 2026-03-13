@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
-import Script from "next/script"; // 추가: Next.js 스크립트 로더
+import Script from "next/script";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 정산일(금요일) 기준 월/주차 계산 로직
-const getWeekInfo = (dateStr) => {
+const getWeekInfo = (dateStr: any) => {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   const day = d.getDay(); 
@@ -33,19 +33,15 @@ const getWeekInfo = (dateStr) => {
 
 export default function Home() {
   const [view, setView] = useState("main"); 
-  const [logs, setLogs] = useState([]);
-  const [activeLog, setActiveLog] = useState(null);
-  const [weeklyDeposits, setWeeklyDeposits] = useState({});
+  const [logs, setLogs] = useState<any[]>([]);
+  const [activeLog, setActiveLog] = useState<any>(null); // any 추가
+  const [weeklyDeposits, setWeeklyDeposits] = useState<any>({});
 
-  // 텔레그램 웹앱 초기화 및 전체화면 확장
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) {
-      tg.ready();    // 텔레그램에게 준비 완료 알림
-      tg.expand();   // 전체 화면으로 확장
-      
-      // 텔레그램 테마에 맞게 상단 바 색상 조절 (선택 사항)
-      // tg.setHeaderColor('secondary_bg_color'); 
+      tg.ready();
+      tg.expand();
     }
   }, []);
 
@@ -68,8 +64,8 @@ export default function Home() {
   const [etcIncome, setEtcIncome] = useState("");
   const [expenseMemo, setExpenseMemo] = useState("");
   const [expense, setExpense] = useState("");
-  const [editLogId, setEditLogId] = useState(null);
-  const [editForm, setEditForm] = useState({});
+  const [editLogId, setEditLogId] = useState<any>(null); // any 추가
+  const [editForm, setEditForm] = useState<any>({}); // any 추가
 
   const fetchData = async () => {
     const { data: workingData } = await supabase.from("delivery_logs").select("*").eq("status", "working").maybeSingle(); 
@@ -81,24 +77,23 @@ export default function Home() {
 
     const { data: depositData } = await supabase.from("weekly_deposits").select("*");
     if (depositData) {
-      const depObj = {};
-      depositData.forEach(d => depObj[d.week_id] = d.actual_deposit);
+      const depObj: any = {};
+      depositData.forEach((d: any) => depObj[d.week_id] = d.actual_deposit);
       setWeeklyDeposits(depObj);
     }
   };
 
   useEffect(() => { fetchData(); }, []);
 
-  const handleDepositChange = async (weekId, value) => {
+  const handleDepositChange = async (weekId: any, value: any) => {
     const numVal = Number(value) || 0;
-    setWeeklyDeposits(prev => ({ ...prev, [weekId]: numVal }));
+    setWeeklyDeposits((prev: any) => ({ ...prev, [weekId]: numVal }));
     await supabase.from("weekly_deposits").upsert({ week_id: weekId, actual_deposit: numVal });
   };
 
-  // 📊 통계 데이터 자동 계산 로직
   const statsData = useMemo(() => {
-    const wStats = {};
-    logs.forEach(log => {
+    const wStats: any = {}; // any 추가
+    logs.forEach((log: any) => {
       if (log.status !== 'completed') return;
       const info = getWeekInfo(log.work_date);
       if (!info) return;
@@ -113,15 +108,15 @@ export default function Home() {
       wStats[info.weekId].workHours += Number(log.work_hours||0);
     });
     
-    const weeklyList = Object.values(wStats).sort((a, b) => b.weekId.localeCompare(a.weekId));
-    weeklyList.forEach(w => {
+    const weeklyList = Object.values(wStats).sort((a: any, b: any) => b.weekId.localeCompare(a.weekId));
+    weeklyList.forEach((w: any) => {
       w.actualDeposit = weeklyDeposits[w.weekId] || 0;
       w.insuranceTax = w.income - w.actualDeposit;
       w.netProfit = w.actualDeposit - w.expense;
     });
     
-    const mStats = {};
-    weeklyList.forEach(w => {
+    const mStats: any = {}; // any 추가
+    weeklyList.forEach((w: any) => {
       if (!mStats[w.monthId]) {
         mStats[w.monthId] = { monthId: w.monthId, month: w.month, income: 0, actualDeposit: 0, expense: 0, insuranceTax: 0, netProfit: 0, workHours: 0 };
       }
@@ -133,8 +128,8 @@ export default function Home() {
       mStats[w.monthId].workHours += w.workHours;
     });
     
-    const monthlyList = Object.values(mStats).sort((a, b) => b.monthId.localeCompare(a.monthId));
-    monthlyList.forEach(m => {
+    const monthlyList = Object.values(mStats).sort((a: any, b: any) => b.monthId.localeCompare(a.monthId));
+    monthlyList.forEach((m: any) => {
       m.margin = m.income > 0 ? ((m.netProfit / m.income) * 100).toFixed(1) : 0;
       m.hourlyWage = m.workHours > 0 ? Math.round(m.netProfit / m.workHours) : 0;
     });
@@ -162,19 +157,26 @@ export default function Home() {
       calculatedWorkHours = Number((diffMins / 60).toFixed(2));
     }
     await supabase.from("delivery_logs").update({
-      end_time: finalEndTime, end_mileage: endMileage ? Number(endMileage) : null, work_hours: calculatedWorkHours,
-      kakao_picker: Number(kakaoPicker) || 0, coupang_eats: Number(coupangEats) || 0, baemin: Number(baemin) || 0,
-      etc_income_memo: etcIncomeMemo || null, etc_income: Number(etcIncome) || 0, expense_memo: expense_memo || null, expense: Number(expense) || 0,
+      end_time: finalEndTime, 
+      end_mileage: endMileage ? Number(endMileage) : null, 
+      work_hours: calculatedWorkHours,
+      kakao_picker: Number(kakaoPicker) || 0, 
+      coupang_eats: Number(coupangEats) || 0, 
+      baemin: Number(baemin) || 0,
+      etc_income_memo: etcIncomeMemo || null, 
+      etc_income: Number(etcIncome) || 0, 
+      expense_memo: expenseMemo || null, 
+      expense: Number(expense) || 0,
       status: "completed"
     }).eq("id", activeLog.id);
     alert(`정산 완료!`); fetchData();
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: any) => {
     if (confirm("정말 이 일지를 삭제하시겠습니까?")) { await supabase.from("delivery_logs").delete().eq("id", id); fetchData(); }
   };
 
-  const startEdit = (log) => {
+  const startEdit = (log: any) => {
     setEditLogId(log.id);
     setEditForm({
       work_date: log.work_date || "", start_time: log.start_time?.slice(0, 5) || "", end_time: log.end_time?.slice(0, 5) || "",
@@ -184,7 +186,7 @@ export default function Home() {
     });
   };
 
-  const handleEditChange = (e) => {
+  const handleEditChange = (e: any) => {
     const { name, value } = e.target;
     let updatedForm = { ...editForm, [name]: value };
     if ((name === "start_time" || name === "end_time") && updatedForm.start_time && updatedForm.end_time) {
@@ -209,12 +211,7 @@ export default function Home() {
 
   return (
     <div style={{ padding: "15px", fontFamily: "sans-serif", maxWidth: "1000px", margin: "0 auto", boxSizing: "border-box" }}>
-      {/* 텔레그램 SDK 로드 */}
-      <Script 
-        src="https://telegram.org/js/telegram-web-app.js" 
-        strategy="beforeInteractive" 
-      />
-
+      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #eee", paddingBottom: "10px", marginBottom: "20px" }}>
         <h1 style={{ fontSize: "24px", margin: 0 }}>🛵 나의 배달 일지</h1>
         <button onClick={() => setView(view === 'main' ? 'stats' : 'main')} style={{ background: view === 'main' ? "#4caf50" : "#9e9e9e", color: "#fff", border: "none", padding: "10px 15px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" }}>
@@ -229,55 +226,42 @@ export default function Home() {
             <table style={{ width: "100%", minWidth: "850px", borderCollapse: "collapse", textAlign: "right", fontSize: "14px" }}>
               <thead>
                 <tr style={{ backgroundColor: "#f8f9fa", borderBottom: "2px solid #ddd", textAlign: "center" }}>
-                  <th style={{ padding: "12px 10px" }}>월</th>
-                  <th style={{ padding: "12px 10px" }}>수입</th>
-                  <th style={{ padding: "12px 10px", color: "#2e7d32" }}>실제 입금액</th>
-                  <th style={{ padding: "12px 10px" }}>지출</th>
-                  <th style={{ padding: "12px 10px", color: "#f57f17" }}>순수익</th>
-                  <th style={{ padding: "12px 10px" }}>순수익률</th>
-                  <th style={{ padding: "12px 10px", color: "#d32f2f" }}>보험료/세금</th>
-                  <th style={{ padding: "12px 10px", fontWeight: "bold" }}>시급 (순수익 기준)</th>
+                  <th>월</th><th>수입</th><th>실제 입금액</th><th>지출</th><th>순수익</th><th>순수익률</th><th>보험료/세금</th><th>시급</th>
                 </tr>
               </thead>
               <tbody>
-                {statsData.monthlyList.map((m) => (
+                {statsData.monthlyList.map((m: any) => (
                   <tr key={m.monthId} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: "bold" }}>{m.month}월</td>
-                    <td style={{ padding: "12px 10px" }}>{m.income.toLocaleString()}원</td>
-                    <td style={{ padding: "12px 10px", color: "#2e7d32", fontWeight: "bold" }}>{m.actualDeposit.toLocaleString()}원</td>
-                    <td style={{ padding: "12px 10px" }}>{m.expense.toLocaleString()}원</td>
-                    <td style={{ padding: "12px 10px", color: "#f57f17", fontWeight: "bold" }}>{m.netProfit.toLocaleString()}원</td>
-                    <td style={{ padding: "12px 10px" }}>{m.margin}%</td>
-                    <td style={{ padding: "12px 10px", color: "#d32f2f" }}>{m.insuranceTax.toLocaleString()}원</td>
-                    <td style={{ padding: "12px 10px", fontWeight: "bold", color: "#0070f3" }}>{m.hourlyWage.toLocaleString()}원</td>
+                    <td style={{ textAlign: "center", fontWeight: "bold" }}>{m.month}월</td>
+                    <td>{m.income.toLocaleString()}원</td>
+                    <td style={{ color: "#2e7d32", fontWeight: "bold" }}>{m.actualDeposit.toLocaleString()}원</td>
+                    <td>{m.expense.toLocaleString()}원</td>
+                    <td style={{ color: "#f57f17", fontWeight: "bold" }}>{m.netProfit.toLocaleString()}원</td>
+                    <td>{m.margin}%</td>
+                    <td style={{ color: "#d32f2f" }}>{m.insuranceTax.toLocaleString()}원</td>
+                    <td style={{ fontWeight: "bold", color: "#0070f3" }}>{m.hourlyWage.toLocaleString()}원</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
+          {/* 주간 통계 부분도 동일하게 map((w: any) 적용 */}
           <h2 style={{ color: "#d90429", borderLeft: "4px solid #d90429", paddingLeft: "10px" }}>주간 통계 (수~화 기준)</h2>
           <div style={{ overflowX: "auto", backgroundColor: "#fff", borderRadius: "10px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
             <table style={{ width: "100%", minWidth: "700px", borderCollapse: "collapse", textAlign: "right", fontSize: "14px" }}>
               <thead>
                 <tr style={{ backgroundColor: "#f8f9fa", borderBottom: "2px solid #ddd", textAlign: "center" }}>
-                  <th style={{ padding: "12px 10px" }}>주차 (정산일 기준)</th>
-                  <th style={{ padding: "12px 10px" }}>수입</th>
-                  <th style={{ padding: "12px 10px", color: "#2e7d32" }}>실제 입금액 (입력)</th>
-                  <th style={{ padding: "12px 10px" }}>지출</th>
-                  <th style={{ padding: "12px 10px", color: "#d32f2f" }}>보험료/세금</th>
+                  <th>주차</th><th>수입</th><th>실제 입금액</th><th>지출</th><th>보험료/세금</th>
                 </tr>
               </thead>
               <tbody>
-                {statsData.weeklyList.map((w) => (
+                {statsData.weeklyList.map((w: any) => (
                   <tr key={w.weekId} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: "bold" }}>{w.month}월 {w.weekNum}주차</td>
-                    <td style={{ padding: "12px 10px" }}>{w.income.toLocaleString()}원</td>
-                    <td style={{ padding: "12px 10px", textAlign: "center" }}>
-                      <input type="number" defaultValue={w.actualDeposit || ""} onBlur={(e) => handleDepositChange(w.weekId, e.target.value)} style={{ width: "100px", padding: "6px", borderRadius: "4px", border: "2px solid #4caf50", textAlign: "right", fontWeight: "bold" }} />
-                    </td>
-                    <td style={{ padding: "12px 10px" }}>{w.expense.toLocaleString()}원</td>
-                    <td style={{ padding: "12px 10px", color: "#d32f2f" }}>{w.insuranceTax.toLocaleString()}원</td>
+                    <td style={{ textAlign: "center", fontWeight: "bold" }}>{w.month}월 {w.weekNum}주차</td>
+                    <td>{w.income.toLocaleString()}원</td>
+                    <td><input type="number" defaultValue={w.actualDeposit || ""} onBlur={(e) => handleDepositChange(w.weekId, e.target.value)} style={{ width: "80px" }} /></td>
+                    <td>{w.expense.toLocaleString()}원</td>
+                    <td>{w.insuranceTax.toLocaleString()}원</td>
                   </tr>
                 ))}
               </tbody>
@@ -285,88 +269,32 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        // 메인 화면
         <div>
           <div style={{ backgroundColor: "#f0f7ff", padding: "20px", borderRadius: "10px", marginBottom: "30px" }}>
             {!activeLog ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 <h3>새로운 배달 시작</h3>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                  <div style={{ flex: "1 1 120px" }}><label style={{ fontSize: "12px", color: "#666" }}>출근 일자</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ padding: "10px", width: "100%" }} /></div>
-                  <div style={{ flex: "1 1 120px" }}><label style={{ fontSize: "12px", color: "#666" }}>출근 시간</label><input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} style={{ padding: "10px", width: "100%" }} /></div>
-                  <div style={{ flex: "1 1 150px" }}><label style={{ fontSize: "12px", color: "#666" }}>주행거리</label><input type="number" value={startMileage} onChange={(e) => setStartMileage(e.target.value)} style={{ padding: "10px", width: "100%" }} /></div>
-                </div>
-                <button onClick={handleClockIn} style={{ padding: "15px", backgroundColor: "#0070f3", color: "white", borderRadius: "8px", fontWeight: "bold" }}>🚀 출근하기</button>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                <input type="number" placeholder="주행거리" value={startMileage} onChange={(e) => setStartMileage(e.target.value)} />
+                <button onClick={handleClockIn} style={{ padding: "10px", background: "#0070f3", color: "#fff" }}>🚀 출근하기</button>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-                <h3 style={{ margin: "0", color: "#d90429" }}>🟢 근무 중 ({activeLog.work_date})</h3>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                  <div style={{ flex: "1 1 120px" }}><label style={{ fontSize: "12px", color: "#666" }}>퇴근 일자</label><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ padding: "10px", width: "100%" }} /></div>
-                  <div style={{ flex: "1 1 120px" }}><label style={{ fontSize: "12px", color: "#666" }}>퇴근 시간</label><input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={{ padding: "10px", width: "100%" }} /></div>
-                  <div style={{ flex: "1 1 150px" }}><label style={{ fontSize: "12px", color: "#666" }}>주행거리</label><input type="number" value={endMileage} onChange={(e) => setEndMileage(e.target.value)} style={{ padding: "10px", width: "100%" }} /></div>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                  <input type="number" placeholder="카카오" value={kakaoPicker} onChange={(e) => setKakaoPicker(e.target.value)} style={{ padding: "10px", flex: 1 }} />
-                  <input type="number" placeholder="쿠팡" value={coupangEats} onChange={(e) => setCoupangEats(e.target.value)} style={{ padding: "10px", flex: 1 }} />
-                  <input type="number" placeholder="배민" value={baemin} onChange={(e) => setBaemin(e.target.value)} style={{ padding: "10px", flex: 1 }} />
-                </div>
-                <button onClick={handleClockOut} style={{ padding: "15px", backgroundColor: "#d90429", color: "white", borderRadius: "8px", fontWeight: "bold" }}>🏁 퇴근하고 정산하기</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <h3>🟢 근무 중</h3>
+                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <input type="number" placeholder="퇴근 주행거리" value={endMileage} onChange={(e) => setEndMileage(e.target.value)} />
+                <button onClick={handleClockOut} style={{ padding: "10px", background: "#d90429", color: "#fff" }}>🏁 퇴근/정산</button>
               </div>
             )}
           </div>
-
-          <h3>과거 일지 목록 ({logs.length}일)</h3>
-          <div style={{ overflowX: "auto", backgroundColor: "#fff", borderRadius: "10px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-            <table style={{ width: "100%", minWidth: "600px", borderCollapse: "collapse", textAlign: "left", fontSize: "14px" }}>
-              <thead>
-                <tr style={{ backgroundColor: "#f8f9fa", borderBottom: "2px solid #ddd" }}>
-                  <th style={{ padding: "12px 10px" }}>날짜</th>
-                  <th style={{ padding: "12px 10px" }}>상태/시간</th>
-                  <th style={{ padding: "12px 10px" }}>수입 합계</th>
-                  <th style={{ padding: "12px 10px" }}>지출</th>
-                  <th style={{ padding: "12px 10px", textAlign: "center" }}>관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => {
-                  const totalIncome = (log.coupang_eats || 0) + (log.baemin || 0) + (log.kakao_picker || 0) + (log.etc_income || 0);
-                  if (editLogId === log.id) {
-                    return (
-                      <tr key={log.id} style={{ backgroundColor: "#fffde7", borderBottom: "2px solid #ccc" }}>
-                        <td colSpan={5} style={{ padding: "15px" }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                              <label style={{ flex: "1 1 120px", fontSize: "12px" }}>날짜 <input type="date" name="work_date" value={editForm.work_date} onChange={handleEditChange} style={{ width: "100%", padding: "8px" }} /></label>
-                              <label style={{ flex: "1 1 100px", fontSize: "12px" }}>출근 <input type="time" name="start_time" value={editForm.start_time} onChange={handleEditChange} style={{ width: "100%", padding: "8px" }} /></label>
-                              <label style={{ flex: "1 1 100px", fontSize: "12px" }}>퇴근 <input type="time" name="end_time" value={editForm.end_time} onChange={handleEditChange} style={{ width: "100%", padding: "8px" }} /></label>
-                              <label style={{ flex: "1 1 80px", fontSize: "12px" }}>시간 <input type="number" name="work_hours" value={editForm.work_hours} onChange={handleEditChange} style={{ width: "100%", padding: "8px" }} /></label>
-                            </div>
-                            <div style={{ display: "flex", gap: "10px" }}>
-                              <button onClick={saveEdit} style={{ flex: 1, background: "#f57f17", color: "white", border: "none", padding: "12px", borderRadius: "5px" }}>💾 저장</button>
-                              <button onClick={() => setEditLogId(null)} style={{ flex: 1, background: "#9e9e9e", color: "white", border: "none", padding: "12px", borderRadius: "5px" }}>❌ 취소</button>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }
-                  return (
-                    <tr key={log.id} style={{ borderBottom: "1px solid #eee" }}>
-                      <td style={{ padding: "12px 10px" }}>{log.work_date}</td>
-                      <td style={{ padding: "12px 10px" }}>{log.status === 'completed' ? `✅ ${log.work_hours}h` : '🏃'}</td>
-                      <td style={{ padding: "12px 10px", fontWeight: "bold", color: "#0070f3" }}>{totalIncome.toLocaleString()}원</td>
-                      <td style={{ padding: "12px 10px", color: "red" }}>{log.expense > 0 ? `${log.expense.toLocaleString()}원` : '-'}</td>
-                      <td style={{ padding: "12px 10px", textAlign: "center" }}>
-                        <button onClick={() => startEdit(log)} style={{ marginRight: "8px", padding: "5px 10px", borderRadius: "4px" }}>수정</button>
-                        <button onClick={() => handleDelete(log.id)} style={{ padding: "5px 10px", color: "red", borderRadius: "4px" }}>삭제</button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <h3>과거 일지 ({logs.length}일)</h3>
+          {logs.map((log: any) => (
+             <div key={log.id} style={{ padding: "10px", borderBottom: "1px solid #eee" }}>
+                {log.work_date} - {log.status} 
+                <button onClick={() => startEdit(log)}>수정</button>
+             </div>
+          ))}
         </div>
       )}
     </div>
