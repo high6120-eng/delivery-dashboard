@@ -9,6 +9,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// 공통 스타일 모음 (코드 량 단축 및 화면 삐져나옴 완벽 방지)
+const inputStyle: any = { width: "100%", boxSizing: "border-box", padding: "12px", borderRadius: "10px", border: "1px solid #ddd", fontSize: "15px" };
+const editInputStyle: any = { width: "100%", boxSizing: "border-box", padding: "8px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "13px" };
+const labelStyle: any = { fontSize: "12px", color: "#666", fontWeight: "600", display: "block", marginBottom: "4px" };
+
 // 주/월간 계산 로직
 const getWeekInfo = (dateStr: any) => {
   if (!dateStr) return null;
@@ -36,14 +41,13 @@ export default function Home() {
   const [weeklyDeposits, setWeeklyDeposits] = useState<any>({});
   const [user, setUser] = useState<any>(null);
 
-  // 텔레그램 연동 및 전체화면 (상단바 숨김)
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) {
       tg.ready();
       tg.expand();
       if (tg.requestFullscreen) tg.requestFullscreen();
-      tg.setHeaderColor('#f4f5f7'); // 배경색과 통일
+      tg.setHeaderColor('#f4f5f7'); 
       if (tg.initDataUnsafe?.user) setUser(tg.initDataUnsafe.user);
     }
   }, []);
@@ -54,7 +58,6 @@ export default function Home() {
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   };
 
-  // 입력 폼 상태
   const [startDate, setStartDate] = useState(getTodayDate());
   const [startTime, setStartTime] = useState("");
   const [startMileage, setStartMileage] = useState("");
@@ -160,7 +163,6 @@ export default function Home() {
     setEditLogId(null); fetchData(); alert("✅ 일지가 성공적으로 수정되었습니다.");
   };
 
-  // 통계 완벽 계산 (월간/주간)
   const statsData = useMemo(() => {
     const wStats: any = {};
     logs.forEach((log: any) => {
@@ -207,8 +209,8 @@ export default function Home() {
   }, [logs, weeklyDeposits]);
 
   return (
-    // ✨ 핵심 변경점: paddingTop을 85px로 늘려 닫기 버튼과 절대 겹치지 않게 수정
-    <div style={{ padding: "85px 16px 40px 16px", fontFamily: "-apple-system, sans-serif", backgroundColor: "#f4f5f7", minHeight: "100vh" }}>
+    // ✨ 변경 1: paddingTop을 110px로 늘려서 아일랜드/닫기 버튼과의 간격 확보 + overflow 방지
+    <div style={{ padding: "110px 16px 40px 16px", boxSizing: "border-box", width: "100%", overflowX: "hidden", fontFamily: "-apple-system, sans-serif", backgroundColor: "#f4f5f7", minHeight: "100vh" }}>
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       
       {/* 🚀 상단 헤더 */}
@@ -223,11 +225,10 @@ export default function Home() {
       </div>
 
       {view === 'stats' ? (
-        /* 📊 통계 화면 (기존 기능 완벽 보존) */
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           <div>
             <h2 style={{ fontSize: "18px", color: "#0070f3", marginBottom: "12px", paddingLeft: "8px", borderLeft: "4px solid #0070f3" }}>월간 마감 통계</h2>
-            <div style={{ overflowX: "auto", backgroundColor: "#fff", borderRadius: "14px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+            <div style={{ overflowX: "auto", width: "100%", backgroundColor: "#fff", borderRadius: "14px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
               <table style={{ width: "100%", minWidth: "800px", borderCollapse: "collapse", textAlign: "right", fontSize: "14px" }}>
                 <thead>
                   <tr style={{ backgroundColor: "#fafafa", borderBottom: "2px solid #eee", textAlign: "center" }}>
@@ -271,67 +272,68 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        /* 🏠 메인 화면 (기록 폼 + 전체 항목 수정 + 삭제 복구) */
+        /* 🏠 메인 화면 */
         <div>
           <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "16px", boxShadow: "0 4px 12px rgba(0,0,0,0.06)", marginBottom: "24px" }}>
             {!activeLog ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "700" }}>새로운 배달 시작</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                   <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                     <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>출근 날짜</label>
-                     <input type="date" value={startDate} onChange={(e)=>setStartDate(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd", fontSize:"15px"}}/>
+                   <div>
+                     <label style={labelStyle}>출근 날짜</label>
+                     <input type="date" value={startDate} onChange={(e)=>setStartDate(e.target.value)} style={inputStyle}/>
                    </div>
-                   <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                     <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>출근 시간</label>
-                     <input type="time" value={startTime} onChange={(e)=>setStartTime(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd", fontSize:"15px"}}/>
+                   <div>
+                     <label style={labelStyle}>출근 시간</label>
+                     <input type="time" value={startTime} onChange={(e)=>setStartTime(e.target.value)} style={inputStyle}/>
                    </div>
                 </div>
-                <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                  <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>현재 주행거리(km)</label>
-                  <input type="number" placeholder="예: 15400" value={startMileage} onChange={(e)=>setStartMileage(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd", fontSize:"15px"}}/>
+                <div>
+                  <label style={labelStyle}>현재 주행거리(km)</label>
+                  <input type="number" placeholder="예: 15400" value={startMileage} onChange={(e)=>setStartMileage(e.target.value)} style={inputStyle}/>
                 </div>
-                <button onClick={handleClockIn} style={{ padding: "16px", backgroundColor: "#0070f3", color: "white", borderRadius: "12px", fontWeight: "800", fontSize:"16px", border: "none", marginTop:"8px", boxShadow: "0 4px 12px rgba(0, 112, 243, 0.3)" }}>🚀 출근하기</button>
+                <button onClick={handleClockIn} style={{ width: "100%", padding: "16px", backgroundColor: "#0070f3", color: "white", borderRadius: "12px", fontWeight: "800", fontSize:"16px", border: "none", marginTop:"8px", boxShadow: "0 4px 12px rgba(0, 112, 243, 0.3)" }}>🚀 출근하기</button>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "700", color: "#d90429" }}>🟢 근무 중 ({activeLog.start_time} ~ )</h3>
+                
+                {/* ✨ 변경 2: 모든 요소가 box-sizing을 적용받아 화면을 벗어나지 않게 고정 */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                   <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                     <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>퇴근 시간</label>
-                     <input type="time" value={endTime} onChange={(e)=>setEndTime(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd", fontSize:"15px"}}/>
+                   <div>
+                     <label style={labelStyle}>퇴근 시간</label>
+                     <input type="time" value={endTime} onChange={(e)=>setEndTime(e.target.value)} style={inputStyle}/>
                    </div>
-                   <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                     <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>종료 주행거리(km)</label>
-                     <input type="number" placeholder="예: 15500" value={endMileage} onChange={(e)=>setEndMileage(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd", fontSize:"15px"}}/>
+                   <div>
+                     <label style={labelStyle}>종료 주행거리(km)</label>
+                     <input type="number" placeholder="예: 15500" value={endMileage} onChange={(e)=>setEndMileage(e.target.value)} style={inputStyle}/>
                    </div>
                 </div>
                 
-                {/* ✨ 핵심 변경점: 수익 칸을 2열 Grid로 변경하고 라벨을 밖으로 꺼냄 */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "4px" }}>
-                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>쿠팡 수입 (원)</label>
-                    <input type="number" placeholder="입력" value={coupangEats} onChange={(e)=>setCoupangEats(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  <div>
+                    <label style={labelStyle}>쿠팡 수입 (원)</label>
+                    <input type="number" placeholder="입력" value={coupangEats} onChange={(e)=>setCoupangEats(e.target.value)} style={inputStyle}/>
                   </div>
-                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>배민 수입 (원)</label>
-                    <input type="number" placeholder="입력" value={baemin} onChange={(e)=>setBaemin(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  <div>
+                    <label style={labelStyle}>배민 수입 (원)</label>
+                    <input type="number" placeholder="입력" value={baemin} onChange={(e)=>setBaemin(e.target.value)} style={inputStyle}/>
                   </div>
-                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>카카오 수입 (원)</label>
-                    <input type="number" placeholder="입력" value={kakaoPicker} onChange={(e)=>setKakaoPicker(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  <div>
+                    <label style={labelStyle}>카카오 수입 (원)</label>
+                    <input type="number" placeholder="입력" value={kakaoPicker} onChange={(e)=>setKakaoPicker(e.target.value)} style={inputStyle}/>
                   </div>
-                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>기타 수입 (원)</label>
-                    <input type="number" placeholder="입력" value={etcIncome} onChange={(e)=>setEtcIncome(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  <div>
+                    <label style={labelStyle}>기타 수입 (원)</label>
+                    <input type="number" placeholder="입력" value={etcIncome} onChange={(e)=>setEtcIncome(e.target.value)} style={inputStyle}/>
                   </div>
-                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
-                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>지출 (주유/식대)</label>
-                    <input type="number" placeholder="입력" value={expense} onChange={(e)=>setExpense(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  <div>
+                    <label style={labelStyle}>지출 (주유/식대)</label>
+                    <input type="number" placeholder="입력" value={expense} onChange={(e)=>setExpense(e.target.value)} style={inputStyle}/>
                   </div>
                 </div>
 
-                <button onClick={handleClockOut} style={{ padding: "16px", backgroundColor: "#d90429", color: "white", borderRadius: "12px", fontWeight: "800", fontSize:"16px", border: "none", marginTop:"8px", boxShadow: "0 4px 12px rgba(217, 4, 41, 0.3)" }}>🏁 퇴근하고 정산하기</button>
+                <button onClick={handleClockOut} style={{ width: "100%", padding: "16px", backgroundColor: "#d90429", color: "white", borderRadius: "12px", fontWeight: "800", fontSize:"16px", border: "none", marginTop:"8px", boxShadow: "0 4px 12px rgba(217, 4, 41, 0.3)" }}>🏁 퇴근하고 정산하기</button>
               </div>
             )}
           </div>
@@ -345,29 +347,28 @@ export default function Home() {
               return (
                 <div key={log.id} style={{ backgroundColor: "#fff", padding: "16px", borderRadius: "16px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", border: isEditing ? "2px solid #0070f3" : "none" }}>
                   {isEditing ? (
-                    /* 전체 DB 항목 수정 폼 (안정적인 Grid 배치) */
                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                       <div style={{fontWeight:"bold", borderBottom:"1px solid #eee", paddingBottom:"8px", marginBottom:"4px"}}>✏️ 전체 항목 수정</div>
                       
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>날짜</span><input type="date" name="work_date" value={editForm.work_date} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>날짜</span><input type="date" name="work_date" value={editForm.work_date} onChange={handleEditChange} style={editInputStyle}/></div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>출근</span><input type="time" name="start_time" value={editForm.start_time} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>퇴근</span><input type="time" name="end_time" value={editForm.end_time} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                      </div>
-
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>시작 주행(km)</span><input type="number" name="start_mileage" value={editForm.start_mileage} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>종료 주행(km)</span><input type="number" name="end_mileage" value={editForm.end_mileage} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>출근</span><input type="time" name="start_time" value={editForm.start_time} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>퇴근</span><input type="time" name="end_time" value={editForm.end_time} onChange={handleEditChange} style={editInputStyle}/></div>
                       </div>
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>쿠팡</span><input type="number" name="coupang_eats" value={editForm.coupang_eats} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>배민</span><input type="number" name="baemin" value={editForm.baemin} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>카카오</span><input type="number" name="kakao_picker" value={editForm.kakao_picker} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>기타 수입</span><input type="number" name="etc_income" value={editForm.etc_income} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>지출</span><input type="number" name="expense" value={editForm.expense} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>시작 주행(km)</span><input type="number" name="start_mileage" value={editForm.start_mileage} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>종료 주행(km)</span><input type="number" name="end_mileage" value={editForm.end_mileage} onChange={handleEditChange} style={editInputStyle}/></div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>쿠팡</span><input type="number" name="coupang_eats" value={editForm.coupang_eats} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>배민</span><input type="number" name="baemin" value={editForm.baemin} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>카카오</span><input type="number" name="kakao_picker" value={editForm.kakao_picker} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>기타 수입</span><input type="number" name="etc_income" value={editForm.etc_income} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div><span style={{fontSize:"11px", color:"#999"}}>지출</span><input type="number" name="expense" value={editForm.expense} onChange={handleEditChange} style={editInputStyle}/></div>
                       </div>
 
                       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
@@ -376,7 +377,6 @@ export default function Home() {
                       </div>
                     </div>
                   ) : (
-                    /* 일반 뷰 + 삭제 버튼 복구 */
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
                         <div style={{ fontWeight: "700", fontSize: "15px", color:"#222" }}>
