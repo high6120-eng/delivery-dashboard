@@ -207,8 +207,8 @@ export default function Home() {
   }, [logs, weeklyDeposits]);
 
   return (
-    // padding-top: 60px 로 텔레그램 상단 버튼과의 겹침 완벽 방지
-    <div style={{ padding: "60px 16px 40px 16px", fontFamily: "-apple-system, sans-serif", backgroundColor: "#f4f5f7", minHeight: "100vh" }}>
+    // ✨ 핵심 변경점: paddingTop을 85px로 늘려 닫기 버튼과 절대 겹치지 않게 수정
+    <div style={{ padding: "85px 16px 40px 16px", fontFamily: "-apple-system, sans-serif", backgroundColor: "#f4f5f7", minHeight: "100vh" }}>
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       
       {/* 🚀 상단 헤더 */}
@@ -223,9 +223,8 @@ export default function Home() {
       </div>
 
       {view === 'stats' ? (
-        /* 📊 통계 화면 (월간 복구 완료) */
+        /* 📊 통계 화면 (기존 기능 완벽 보존) */
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          
           <div>
             <h2 style={{ fontSize: "18px", color: "#0070f3", marginBottom: "12px", paddingLeft: "8px", borderLeft: "4px solid #0070f3" }}>월간 마감 통계</h2>
             <div style={{ overflowX: "auto", backgroundColor: "#fff", borderRadius: "14px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
@@ -308,16 +307,28 @@ export default function Home() {
                    </div>
                 </div>
                 
-                <label style={{fontSize: "12px", color: "#666", fontWeight:"600", marginTop:"8px"}}>플랫폼 수익 (원)</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
-                  <input type="number" placeholder="쿠팡" value={coupangEats} onChange={(e)=>setCoupangEats(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd", textAlign:"center"}}/>
-                  <input type="number" placeholder="배민" value={baemin} onChange={(e)=>setBaemin(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd", textAlign:"center"}}/>
-                  <input type="number" placeholder="카카오" value={kakaoPicker} onChange={(e)=>setKakaoPicker(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd", textAlign:"center"}}/>
-                </div>
-                
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                   <input type="number" placeholder="기타 수입" value={etcIncome} onChange={(e)=>setEtcIncome(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
-                   <input type="number" placeholder="지출(주유/식대)" value={expense} onChange={(e)=>setExpense(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                {/* ✨ 핵심 변경점: 수익 칸을 2열 Grid로 변경하고 라벨을 밖으로 꺼냄 */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "4px" }}>
+                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
+                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>쿠팡 수입 (원)</label>
+                    <input type="number" placeholder="입력" value={coupangEats} onChange={(e)=>setCoupangEats(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  </div>
+                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
+                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>배민 수입 (원)</label>
+                    <input type="number" placeholder="입력" value={baemin} onChange={(e)=>setBaemin(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  </div>
+                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
+                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>카카오 수입 (원)</label>
+                    <input type="number" placeholder="입력" value={kakaoPicker} onChange={(e)=>setKakaoPicker(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  </div>
+                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
+                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>기타 수입 (원)</label>
+                    <input type="number" placeholder="입력" value={etcIncome} onChange={(e)=>setEtcIncome(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  </div>
+                  <div style={{display:"flex", flexDirection:"column", gap:"4px"}}>
+                    <label style={{fontSize: "12px", color: "#666", fontWeight:"600"}}>지출 (주유/식대)</label>
+                    <input type="number" placeholder="입력" value={expense} onChange={(e)=>setExpense(e.target.value)} style={{padding:"12px", borderRadius:"10px", border:"1px solid #ddd"}}/>
+                  </div>
                 </div>
 
                 <button onClick={handleClockOut} style={{ padding: "16px", backgroundColor: "#d90429", color: "white", borderRadius: "12px", fontWeight: "800", fontSize:"16px", border: "none", marginTop:"8px", boxShadow: "0 4px 12px rgba(217, 4, 41, 0.3)" }}>🏁 퇴근하고 정산하기</button>
@@ -334,30 +345,29 @@ export default function Home() {
               return (
                 <div key={log.id} style={{ backgroundColor: "#fff", padding: "16px", borderRadius: "16px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", border: isEditing ? "2px solid #0070f3" : "none" }}>
                   {isEditing ? (
-                    /* 전체 DB 항목 수정 폼 */
+                    /* 전체 DB 항목 수정 폼 (안정적인 Grid 배치) */
                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                       <div style={{fontWeight:"bold", borderBottom:"1px solid #eee", paddingBottom:"8px", marginBottom:"4px"}}>✏️ 전체 항목 수정</div>
                       
-                      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "6px" }}>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>날짜</span><input type="date" name="work_date" value={editForm.work_date} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px", fontSize:"13px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>출근</span><input type="time" name="start_time" value={editForm.start_time} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px", fontSize:"13px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>퇴근</span><input type="time" name="end_time" value={editForm.end_time} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px", fontSize:"13px"}}/></div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>날짜</span><input type="date" name="work_date" value={editForm.work_date} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>출근</span><input type="time" name="start_time" value={editForm.start_time} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>퇴근</span><input type="time" name="end_time" value={editForm.end_time} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
                       </div>
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>시작 주행(km)</span><input type="number" name="start_mileage" value={editForm.start_mileage} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>종료 주행(km)</span><input type="number" name="end_mileage" value={editForm.end_mileage} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>시작 주행(km)</span><input type="number" name="start_mileage" value={editForm.start_mileage} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>종료 주행(km)</span><input type="number" name="end_mileage" value={editForm.end_mileage} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
                       </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px" }}>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>쿠팡</span><input type="number" name="coupang_eats" value={editForm.coupang_eats} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>배민</span><input type="number" name="baemin" value={editForm.baemin} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>카카오</span><input type="number" name="kakao_picker" value={editForm.kakao_picker} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                      </div>
-                      
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>기타 수입</span><input type="number" name="etc_income" value={editForm.etc_income} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
-                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"10px", color:"#999"}}>지출</span><input type="number" name="expense" value={editForm.expense} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>쿠팡</span><input type="number" name="coupang_eats" value={editForm.coupang_eats} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>배민</span><input type="number" name="baemin" value={editForm.baemin} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>카카오</span><input type="number" name="kakao_picker" value={editForm.kakao_picker} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>기타 수입</span><input type="number" name="etc_income" value={editForm.etc_income} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
+                        <div style={{display:"flex", flexDirection:"column"}}><span style={{fontSize:"11px", color:"#999"}}>지출</span><input type="number" name="expense" value={editForm.expense} onChange={handleEditChange} style={{padding:"8px", border:"1px solid #ddd", borderRadius:"6px"}}/></div>
                       </div>
 
                       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
