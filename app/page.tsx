@@ -4,11 +4,12 @@ import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Script from "next/script";
 
+// Supabase 클라이언트 초기화
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// iOS 겹침 현상 방지용 완벽 스타일 세팅
+// 모바일 겹침 방지 완벽 스타일
 const inputStyle: any = { 
   width: "100%", boxSizing: "border-box", padding: "12px", borderRadius: "10px", 
   border: "1px solid #ddd", fontSize: "15px", WebkitAppearance: "none", margin: 0, backgroundColor: "#fff" 
@@ -18,7 +19,6 @@ const editInputStyle: any = {
   border: "1px solid #ddd", fontSize: "13px", WebkitAppearance: "none", margin: 0, backgroundColor: "#fff" 
 };
 const labelStyle: any = { fontSize: "12px", color: "#666", fontWeight: "600", display: "block", marginBottom: "4px" };
-// Grid 요소가 삐져나오지 않게 잡아주는 래퍼
 const gridItemStyle: any = { minWidth: 0 }; 
 
 const getWeekInfo = (dateStr: any) => {
@@ -42,12 +42,10 @@ export default function Home() {
   const [activeLog, setActiveLog] = useState<any>(null);
   const [weeklyDeposits, setWeeklyDeposits] = useState<any>({});
   
-  // 인증 관련 상태
   const [user, setUser] = useState<any>(null);
   const [allowedUsers, setAllowedUsers] = useState<any[]>([]);
-  const MASTER_ID = "1062746453"; // 👑 대표님 마스터 계정 ID
+  const MASTER_ID = "1062746453"; // 👑 마스터 텔레그램 ID
 
-  // 열람자 관리 폼 상태
   const [newViewerId, setNewViewerId] = useState("");
   const [newViewerMemo, setNewViewerMemo] = useState("");
 
@@ -81,7 +79,9 @@ export default function Home() {
   const [coupangEats, setCoupangEats] = useState("");
   const [baemin, setBaemin] = useState("");
   const [etcIncome, setEtcIncome] = useState("");
+  const [etcIncomeMemo, setEtcIncomeMemo] = useState(""); // ✨ 추가됨
   const [expense, setExpense] = useState("");
+  const [expenseMemo, setExpenseMemo] = useState("");     // ✨ 추가됨
 
   const [editLogId, setEditLogId] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
@@ -89,7 +89,7 @@ export default function Home() {
   const fetchData = async () => {
     const { data: workingData } = await supabase.from("delivery_logs").select("*").eq("status", "working").maybeSingle(); 
     setActiveLog(workingData);
-    if (workingData) setEndDate(workingData.work_date || getTodayDate());
+    if (workingData) setEndDate(workingData.end_date || getTodayDate());
 
     const { data: historyData } = await supabase.from("delivery_logs").select("*").order("work_date", { ascending: false });
     if (historyData) setLogs(historyData);
@@ -101,31 +101,26 @@ export default function Home() {
       setWeeklyDeposits(depObj);
     }
 
-    // 등록된 열람자 목록 가져오기
     const { data: authUsers } = await supabase.from("allowed_users").select("*");
     if (authUsers) setAllowedUsers(authUsers);
   };
 
   useEffect(() => { fetchData(); }, []);
 
-  // --- 열람자 관리 로직 (마스터 전용) ---
   const handleAddViewer = async () => {
     if (!newViewerId) return alert("텔레그램 ID를 입력해주세요.");
     await supabase.from("allowed_users").insert([{ telegram_id: newViewerId, memo: newViewerMemo }]);
-    setNewViewerId(""); setNewViewerMemo("");
-    fetchData(); alert("열람자가 추가되었습니다.");
+    setNewViewerId(""); setNewViewerMemo(""); fetchData(); alert("열람자가 추가되었습니다.");
   };
 
   const handleDeleteViewer = async (id: any) => {
     if (confirm("이 사용자의 열람 권한을 삭제하시겠습니까?")) {
-      await supabase.from("allowed_users").delete().eq("id", id);
-      fetchData();
+      await supabase.from("allowed_users").delete().eq("id", id); fetchData();
     }
   };
-  // ------------------------------------
 
   const handleDepositChange = async (weekId: any, value: any) => {
-    if (!isMaster) return; // 마스터만 입금액 수정 가능
+    if (!isMaster) return;
     const numVal = Number(value) || 0;
     setWeeklyDeposits((prev: any) => ({ ...prev, [weekId]: numVal }));
     await supabase.from("weekly_deposits").upsert({ week_id: weekId, actual_deposit: numVal });
@@ -145,52 +140,62 @@ export default function Home() {
     let calculatedWorkHours = 0;
     if (activeLog.start_time) {
       const sDate = new Date(`${activeLog.work_date}T${activeLog.start_time}:00`);
-      const eDate = new Date(`${endDate}T${finalEndTime}:00`); // ⬅️ 퇴근 날짜 적용
+      const eDate = new Date(`${endDate}T${finalEndTime}:00`);
       let diffMins = (eDate.getTime() - sDate.getTime()) / (1000 * 60);
       if (diffMins < 0) diffMins += 24 * 60;
       calculatedWorkHours = Number((diffMins / 60).toFixed(2));
     }
     await supabase.from("delivery_logs").update({
-      end_time: finalEndTime, end_mileage: endMileage ? Number(endMileage) : null, work_hours: calculatedWorkHours,
+      end_date: endDate, end_time: finalEndTime, end_mileage: endMileage ? Number(endMileage) : null, work_hours: calculatedWorkHours,
       kakao_picker: Number(kakaoPicker) || 0, coupang_eats: Number(coupangEats) || 0, baemin: Number(baemin) || 0,
-      etc_income: Number(etcIncome) || 0, expense: Number(expense) || 0,
+      etc_income: Number(etcIncome) || 0, etc_income_memo: etcIncomeMemo || null, 
+      expense: Number(expense) || 0, expense_memo: expenseMemo || null,
       status: "completed"
     }).eq("id", activeLog.id);
+    
     alert(`🏁 정산 완료! 고생하셨습니다.`); 
-    setCoupangEats(""); setBaemin(""); setKakaoPicker(""); setEtcIncome(""); setExpense(""); setEndTime(""); setEndMileage("");
+    setCoupangEats(""); setBaemin(""); setKakaoPicker(""); setEtcIncome(""); setEtcIncomeMemo(""); 
+    setExpense(""); setExpenseMemo(""); setEndTime(""); setEndMileage("");
     fetchData();
   };
 
   const handleDelete = async (id: any) => {
-    if (confirm("⚠️ 정말 이 일지를 삭제하시겠습니까?")) { 
-      await supabase.from("delivery_logs").delete().eq("id", id); 
-      fetchData(); 
+    if (confirm("⚠️ 정말 이 일지를 삭제하시겠습니까? 복구할 수 없습니다.")) { 
+      await supabase.from("delivery_logs").delete().eq("id", id); fetchData(); 
     }
   };
 
-  const startEdit = (log: any) => { setEditLogId(log.id); setEditForm({ ...log }); };
+  const startEdit = (log: any) => { 
+    setEditLogId(log.id); 
+    // 수정창 열 때 기본값 세팅 (퇴근 날짜가 없으면 출근 날짜로)
+    setEditForm({ ...log, end_date: log.end_date || log.work_date }); 
+  };
+  
   const handleEditChange = (e: any) => { setEditForm({ ...editForm, [e.target.name]: e.target.value }); };
 
   const saveEdit = async () => {
     let updatedWorkHours = editForm.work_hours;
     if (editForm.start_time && editForm.end_time) {
-      const s = editForm.start_time.split(':').map(Number);
-      const e = editForm.end_time.split(':').map(Number);
-      let diff = (e[0] * 60 + e[1]) - (s[0] * 60 + s[1]);
-      if (diff < 0) diff += 24 * 60;
-      updatedWorkHours = Number((diff / 60).toFixed(2));
+      const sDate = new Date(`${editForm.work_date}T${editForm.start_time}:00`);
+      const eDate = new Date(`${editForm.end_date || editForm.work_date}T${editForm.end_time}:00`);
+      let diffMins = (eDate.getTime() - sDate.getTime()) / (1000 * 60);
+      if (diffMins < 0) diffMins += 24 * 60;
+      updatedWorkHours = Number((diffMins / 60).toFixed(2));
     }
     await supabase.from("delivery_logs").update({
-      work_date: editForm.work_date, start_time: editForm.start_time, end_time: editForm.end_time,
+      work_date: editForm.work_date, start_time: editForm.start_time, 
+      end_date: editForm.end_date, end_time: editForm.end_time,
       start_mileage: Number(editForm.start_mileage), end_mileage: Number(editForm.end_mileage),
       kakao_picker: Number(editForm.kakao_picker), coupang_eats: Number(editForm.coupang_eats), baemin: Number(editForm.baemin),
-      etc_income: Number(editForm.etc_income), expense: Number(editForm.expense), work_hours: updatedWorkHours
+      etc_income: Number(editForm.etc_income), etc_income_memo: editForm.etc_income_memo, 
+      expense: Number(editForm.expense), expense_memo: editForm.expense_memo, 
+      work_hours: updatedWorkHours
     }).eq("id", editLogId);
-    setEditLogId(null); fetchData(); alert("✅ 일지가 성공적으로 수정되었습니다.");
+    
+    setEditLogId(null); fetchData(); alert("✅ 모든 내역이 수정되었습니다.");
   };
 
   const statsData = useMemo(() => {
-    // ... 기존 통계 로직 완벽 동일 유지 (코드 길이상 생략 없이 포함)
     const wStats: any = {};
     logs.forEach((log: any) => {
       if (log.status !== 'completed') return;
@@ -225,13 +230,12 @@ export default function Home() {
     return { weeklyList, monthlyList };
   }, [logs, weeklyDeposits]);
 
-  // 🛡️ 접근 권한 검사 (사용자 정보 로드 완료 후에만 체크)
   if (user && !isMaster && !isViewer) {
     return (
       <div style={{ padding: "100px 20px", textAlign: "center", fontFamily: "sans-serif" }}>
         <h2>🚫 접근 권한이 없습니다</h2>
-        <p>등록된 사용자만 열람 가능합니다.</p>
-        <p style={{ color: "#999", fontSize: "12px" }}>내 ID: {user.id}</p>
+        <p>마스터 계정에 등록된 사용자만 열람 가능합니다.</p>
+        <p style={{ color: "#999", fontSize: "12px", marginTop: "10px" }}>내 ID: {user.id}</p>
       </div>
     );
   }
@@ -240,7 +244,7 @@ export default function Home() {
     <div style={{ padding: "110px 16px 40px 16px", boxSizing: "border-box", width: "100%", overflowX: "hidden", fontFamily: "-apple-system, sans-serif", backgroundColor: "#f4f5f7", minHeight: "100vh" }}>
       <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       
-      {/* 🚀 상단 헤더 (관리자 전용 설정 버튼 추가) */}
+      {/* 🚀 헤더 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: "800", margin: 0 }}>🛵 배달 일지</h1>
@@ -354,12 +358,18 @@ export default function Home() {
                      <input type="number" placeholder="예: 15500" value={endMileage} onChange={(e)=>setEndMileage(e.target.value)} style={inputStyle}/>
                   </div>
                   
+                  {/* ✨ 플랫폼 및 지출/기타수입 내역까지 전부 다 포함 */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "4px" }}>
                     <div style={gridItemStyle}><label style={labelStyle}>쿠팡 수입 (원)</label><input type="number" placeholder="입력" value={coupangEats} onChange={(e)=>setCoupangEats(e.target.value)} style={inputStyle}/></div>
                     <div style={gridItemStyle}><label style={labelStyle}>배민 수입 (원)</label><input type="number" placeholder="입력" value={baemin} onChange={(e)=>setBaemin(e.target.value)} style={inputStyle}/></div>
                     <div style={gridItemStyle}><label style={labelStyle}>카카오 수입 (원)</label><input type="number" placeholder="입력" value={kakaoPicker} onChange={(e)=>setKakaoPicker(e.target.value)} style={inputStyle}/></div>
-                    <div style={gridItemStyle}><label style={labelStyle}>기타 수입 (원)</label><input type="number" placeholder="입력" value={etcIncome} onChange={(e)=>setEtcIncome(e.target.value)} style={inputStyle}/></div>
-                    <div style={gridItemStyle}><label style={labelStyle}>지출 (주유/식대)</label><input type="number" placeholder="입력" value={expense} onChange={(e)=>setExpense(e.target.value)} style={inputStyle}/></div>
+                    <div style={gridItemStyle}></div> {/* 여백 맞춤용 */}
+                    
+                    <div style={gridItemStyle}><label style={labelStyle}>기타 수입 (원)</label><input type="number" placeholder="금액" value={etcIncome} onChange={(e)=>setEtcIncome(e.target.value)} style={inputStyle}/></div>
+                    <div style={gridItemStyle}><label style={labelStyle}>기타 수입 내역</label><input type="text" placeholder="예: 프로모션" value={etcIncomeMemo} onChange={(e)=>setEtcIncomeMemo(e.target.value)} style={inputStyle}/></div>
+                    
+                    <div style={gridItemStyle}><label style={labelStyle}>지출 (원)</label><input type="number" placeholder="금액" value={expense} onChange={(e)=>setExpense(e.target.value)} style={inputStyle}/></div>
+                    <div style={gridItemStyle}><label style={labelStyle}>지출 내역</label><input type="text" placeholder="예: 주유, 식사" value={expenseMemo} onChange={(e)=>setExpenseMemo(e.target.value)} style={inputStyle}/></div>
                   </div>
 
                   <button onClick={handleClockOut} style={{ width: "100%", padding: "16px", backgroundColor: "#d90429", color: "white", borderRadius: "12px", fontWeight: "800", fontSize:"16px", border: "none", marginTop:"8px", boxShadow: "0 4px 12px rgba(217, 4, 41, 0.3)" }}>🏁 퇴근하고 정산하기</button>
@@ -381,26 +391,39 @@ export default function Home() {
                   {isEditing ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                       <div style={{fontWeight:"bold", borderBottom:"1px solid #eee", paddingBottom:"8px", marginBottom:"4px"}}>✏️ 전체 항목 수정</div>
+                      
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>출근 날짜</span><input type="date" name="work_date" value={editForm.work_date} onChange={handleEditChange} style={editInputStyle}/></div>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>출근 시간</span><input type="time" name="start_time" value={editForm.start_time} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>출근 날짜</span><input type="date" name="work_date" value={editForm.work_date || ""} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>출근 시간</span><input type="time" name="start_time" value={editForm.start_time || ""} onChange={handleEditChange} style={editInputStyle}/></div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>퇴근 시간</span><input type="time" name="end_time" value={editForm.end_time} onChange={handleEditChange} style={editInputStyle}/></div>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>시작 주행(km)</span><input type="number" name="start_mileage" value={editForm.start_mileage} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>퇴근 날짜</span><input type="date" name="end_date" value={editForm.end_date || ""} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>퇴근 시간</span><input type="time" name="end_time" value={editForm.end_time || ""} onChange={handleEditChange} style={editInputStyle}/></div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>시작 주행(km)</span><input type="number" name="start_mileage" value={editForm.start_mileage || ""} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>종료 주행(km)</span><input type="number" name="end_mileage" value={editForm.end_mileage || ""} onChange={handleEditChange} style={editInputStyle}/></div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>쿠팡</span><input type="number" name="coupang_eats" value={editForm.coupang_eats || ""} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>배민</span><input type="number" name="baemin" value={editForm.baemin || ""} onChange={handleEditChange} style={editInputStyle}/></div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>종료 주행(km)</span><input type="number" name="end_mileage" value={editForm.end_mileage} onChange={handleEditChange} style={editInputStyle}/></div>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>쿠팡</span><input type="number" name="coupang_eats" value={editForm.coupang_eats} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>카카오</span><input type="number" name="kakao_picker" value={editForm.kakao_picker || ""} onChange={handleEditChange} style={editInputStyle}/></div>
+                      </div>
+
+                      {/* ✨ 수정 모드에도 메모 내역 추가 완료 */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>기타 수입 (원)</span><input type="number" name="etc_income" value={editForm.etc_income || ""} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>기타 내역</span><input type="text" name="etc_income_memo" value={editForm.etc_income_memo || ""} onChange={handleEditChange} style={editInputStyle}/></div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>배민</span><input type="number" name="baemin" value={editForm.baemin} onChange={handleEditChange} style={editInputStyle}/></div>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>카카오</span><input type="number" name="kakao_picker" value={editForm.kakao_picker} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>지출 (원)</span><input type="number" name="expense" value={editForm.expense || ""} onChange={handleEditChange} style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>지출 내역</span><input type="text" name="expense_memo" value={editForm.expense_memo || ""} onChange={handleEditChange} style={editInputStyle}/></div>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>기타 수입</span><input type="number" name="etc_income" value={editForm.etc_income} onChange={handleEditChange} style={editInputStyle}/></div>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>지출</span><input type="number" name="expense" value={editForm.expense} onChange={handleEditChange} style={editInputStyle}/></div>
-                      </div>
+
                       <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                         <button onClick={saveEdit} style={{ flex: 1, padding: "12px", background: "#0070f3", color: "#fff", border: "none", borderRadius: "10px", fontWeight: "bold" }}>💾 전체 저장</button>
                         <button onClick={() => setEditLogId(null)} style={{ flex: 1, padding: "12px", background: "#f0f0f0", color:"#333", border:"none", borderRadius: "10px", fontWeight:"bold" }}>❌ 취소</button>
@@ -417,7 +440,8 @@ export default function Home() {
                              <span>✅ <b style={{color:"#0070f3"}}>{total.toLocaleString()}</b>원 <span style={{color:"#999"}}>({log.work_hours}h)</span></span>
                           ) : '🏃 근무 중...'}
                         </div>
-                        {log.expense > 0 && <div style={{ fontSize: "11px", color: "#d90429", marginTop:"4px" }}>지출: {log.expense.toLocaleString()}원</div>}
+                        {log.expense > 0 && <div style={{ fontSize: "11px", color: "#d90429", marginTop:"4px" }}>지출: {log.expense.toLocaleString()}원 {log.expense_memo ? `(${log.expense_memo})` : ''}</div>}
+                        {log.etc_income > 0 && <div style={{ fontSize: "11px", color: "#0070f3", marginTop:"2px" }}>기타수입: {log.etc_income.toLocaleString()}원 {log.etc_income_memo ? `(${log.etc_income_memo})` : ''}</div>}
                       </div>
                       {isMaster && (
                         <div style={{ display: "flex", gap: "6px", flexDirection:"column" }}>
