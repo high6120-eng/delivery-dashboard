@@ -21,12 +21,34 @@ const editInputStyle: any = {
 const labelStyle: any = { fontSize: "12px", color: "#666", fontWeight: "600", display: "block", marginBottom: "4px" };
 const gridItemStyle: any = { minWidth: 0 }; 
 
-// ✨ 소수점 시간을 '0h 00m' 형식으로 변환해주는 마법의 함수
+// ✨ 소수점 시간을 '0h 00m' 형식으로 예쁘게 변환해주는 함수
 const formatTime = (decimalHours: any) => {
-  if (!decimalHours || isNaN(decimalHours)) return "0h 00m";
+  if (decimalHours === null || decimalHours === undefined || isNaN(Number(decimalHours))) return "0h 00m";
   const h = Math.floor(Number(decimalHours));
   const m = Math.round((Number(decimalHours) - h) * 60);
   return `${h}h ${String(m).padStart(2, '0')}m`;
+};
+
+// 🛠️ iOS 사파리 NaN 버그 원천 차단용 강력한 시간 계산 엔진
+const calculateTimeDiff = (sDate: any, sTime: any, eDate: any, eTime: any) => {
+  if (!sDate || !sTime || !eDate || !eTime) return null;
+  try {
+    const [sY, sM, sD] = sDate.split('-').map(Number);
+    const [sHr, sMin] = sTime.split(':').map(Number);
+    const [eY, eM, eD] = eDate.split('-').map(Number);
+    const [eHr, eMin] = eTime.split(':').map(Number);
+    
+    // 아이폰이 오류를 뿜지 못하도록 안전하게 날짜 객체 생성
+    const start = new Date(sY, sM - 1, sD, sHr, sMin).getTime();
+    const end = new Date(eY, eM - 1, eD, eHr, eMin).getTime();
+    
+    let diffMins = (end - start) / (1000 * 60);
+    if (diffMins < 0) diffMins += 24 * 60; // 자정 넘김 처리
+    
+    return Number((diffMins / 60).toFixed(2));
+  } catch (err) {
+    return null;
+  }
 };
 
 // 주/월간 계산 로직
@@ -92,6 +114,7 @@ export default function Home() {
   const [expense, setExpense] = useState("");
   const [expenseMemo, setExpenseMemo] = useState("");
   
+  // 수동 입력 확인용 상태
   const [inputWorkHours, setInputWorkHours] = useState("");
   const [inputDistance, setInputDistance] = useState("");
 
@@ -150,28 +173,20 @@ export default function Home() {
     if (!activeLog) return;
     const finalEndTime = endTime || getCurrentTime();
     
-    // 근무시간 자동 계산
-    let calcHours = null;
-    if (activeLog.start_time && finalEndTime) {
-      const sDate = new Date(`${activeLog.work_date}T${activeLog.start_time}:00`);
-      const eDate = new Date(`${endDate}T${finalEndTime}:00`);
-      let diffMins = (eDate.getTime() - sDate.getTime()) / (1000 * 60);
-      if (diffMins < 0) diffMins += 24 * 60;
-      calcHours = Number((diffMins / 60).toFixed(2));
-    }
+    // ✨ 강력해진 자동 계산 엔진 사용
+    let calcHours = calculateTimeDiff(activeLog.work_date, activeLog.start_time, endDate, finalEndTime);
 
-    // 주행거리 자동 계산
     let calcDist = null;
     if (activeLog.start_mileage !== null && activeLog.start_mileage !== "" && endMileage !== "") {
       calcDist = Number(endMileage) - Number(activeLog.start_mileage);
     }
 
-    // 🚨 수동 입력 값 검증 (에러 팝업 띄우기)
+    // 🚨 수동 입력 값 검증 (사용자가 임의로 적은 경우에만 체크)
     if (inputWorkHours !== "" && calcHours !== null && Number(inputWorkHours) !== calcHours) {
-      return alert(`⚠️ 업무 시간 오류: 수동 입력 시간(${inputWorkHours}h)과 실제 계산된 시간(${formatTime(calcHours)})이 다릅니다.`);
+      return alert(`⚠️ 업무 시간 오류: 수동 입력값(${inputWorkHours}h)과 실제 시간(${calcHours}h = ${formatTime(calcHours)})이 다릅니다.`);
     }
     if (inputDistance !== "" && calcDist !== null && Number(inputDistance) !== calcDist) {
-      return alert(`⚠️ 주행 거리 오류: 수동 입력 거리(${inputDistance}km)와 실제 계산된 거리(${calcDist}km)가 다릅니다.`);
+      return alert(`⚠️ 주행 거리 오류: 수동 입력값(${inputDistance}km)과 실제 거리(${calcDist}km)가 다릅니다.`);
     }
 
     const finalWorkHours = inputWorkHours !== "" ? Number(inputWorkHours) : (calcHours || 0);
@@ -204,31 +219,36 @@ export default function Home() {
     setEditForm({ ...log, end_date: log.end_date || log.work_date }); 
   };
   
-  const handleEditChange = (e: any) => { setEditForm({ ...editForm, [e.target.name]: e.target.value }); };
+  const handleEditChange = (e: any) => { 
+    const { name, value } = e.target;
+    let newForm = { ...editForm, [name]: value };
+    
+    // ✨ 핵심: 사용자가 수정 폼에서 날짜/시간을 바꾸면, '업무시간/주행거리'도 실시간 연동되어 업데이트!
+    if (["work_date", "end_date", "start_time", "end_time"].includes(name)) {
+      const cHours = calculateTimeDiff(newForm.work_date, newForm.start_time, newForm.end_date, newForm.end_time);
+      if (cHours !== null) newForm.work_hours = cHours;
+    }
+    if (["start_mileage", "end_mileage"].includes(name)) {
+      if (newForm.start_mileage && newForm.end_mileage) {
+        newForm.distance = Number(newForm.end_mileage) - Number(newForm.start_mileage);
+      }
+    }
+    setEditForm(newForm); 
+  };
 
   const saveEdit = async () => {
-    // 수정 시 근무시간 자동 계산
-    let calcHours = null;
-    if (editForm.start_time && editForm.end_time) {
-      const sDate = new Date(`${editForm.work_date}T${editForm.start_time}:00`);
-      const eDate = new Date(`${editForm.end_date || editForm.work_date}T${editForm.end_time}:00`);
-      let diffMins = (eDate.getTime() - sDate.getTime()) / (1000 * 60);
-      if (diffMins < 0) diffMins += 24 * 60;
-      calcHours = Number((diffMins / 60).toFixed(2));
-    }
+    let calcHours = calculateTimeDiff(editForm.work_date, editForm.start_time, editForm.end_date, editForm.end_time);
 
-    // 수정 시 주행거리 자동 계산
     let calcDist = null;
     if (editForm.start_mileage !== null && editForm.start_mileage !== "" && editForm.end_mileage !== null && editForm.end_mileage !== "") {
       calcDist = Number(editForm.end_mileage) - Number(editForm.start_mileage);
     }
 
-    // 🚨 수정 시 수동 입력 값 검증
     if (editForm.work_hours !== "" && editForm.work_hours != null && calcHours !== null && Number(editForm.work_hours) !== calcHours) {
-      return alert(`⚠️ 업무 시간 오류: 수동 입력 시간(${editForm.work_hours}h)과 실제 계산된 시간(${formatTime(calcHours)})이 다릅니다.`);
+      return alert(`⚠️ 업무 시간 오류: 수동 입력값(${editForm.work_hours}h)과 실제 시간(${calcHours}h = ${formatTime(calcHours)})이 다릅니다.`);
     }
     if (editForm.distance !== "" && editForm.distance != null && calcDist !== null && Number(editForm.distance) !== calcDist) {
-      return alert(`⚠️ 주행 거리 오류: 수동 입력 거리(${editForm.distance}km)와 실제 계산된 거리(${calcDist}km)가 다릅니다.`);
+      return alert(`⚠️ 주행 거리 오류: 수동 입력값(${editForm.distance}km)와 실제 거리(${calcDist}km)가 다릅니다.`);
     }
 
     const finalWorkHours = (editForm.work_hours !== "" && editForm.work_hours != null) ? Number(editForm.work_hours) : (calcHours || 0);
@@ -245,7 +265,7 @@ export default function Home() {
       work_hours: finalWorkHours, distance: finalDistance
     }).eq("id", editLogId);
     
-    setEditLogId(null); fetchData(); alert("✅ 일지가 성공적으로 수정 및 계산되었습니다.");
+    setEditLogId(null); fetchData(); alert("✅ 일지가 성공적으로 수정 및 자동 계산되었습니다.");
   };
 
   const statsData = useMemo(() => {
@@ -464,8 +484,8 @@ export default function Home() {
                       </div>
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", padding: "8px", backgroundColor: "#f9f9f9", borderRadius: "8px", border: "1px dashed #ccc" }}>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>근무 시간(예: 1.5) <span style={{fontSize:"10px"}}>(자동 계산)</span></span><input type="number" name="work_hours" value={editForm.work_hours || ""} onChange={handleEditChange} placeholder="자동" style={editInputStyle}/></div>
-                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>주행 거리(km) <span style={{fontSize:"10px"}}>(자동 계산)</span></span><input type="number" name="distance" value={editForm.distance || ""} onChange={handleEditChange} placeholder="자동" style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>근무 시간 <span style={{fontSize:"10px"}}>(예: 1.5)</span></span><input type="number" name="work_hours" value={editForm.work_hours || ""} onChange={handleEditChange} placeholder="자동" style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>주행 거리 <span style={{fontSize:"10px"}}>(자동)</span></span><input type="number" name="distance" value={editForm.distance || ""} onChange={handleEditChange} placeholder="자동" style={editInputStyle}/></div>
                       </div>
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
@@ -498,7 +518,7 @@ export default function Home() {
                         </div>
                         <div style={{ fontSize: "13px", color: "#555", marginTop: "6px" }}>
                           {log.status === 'completed' ? (
-                             // ✨ 이제 목록에서 `1h 30m`처럼 예쁘게 표시됩니다!
+                             // ✨ 예쁘게 변환된 '1h 30m' 형식 적용 완료!
                              <span>✅ <b style={{color:"#0070f3"}}>{total.toLocaleString()}</b>원 <span style={{color:"#999"}}>({formatTime(log.work_hours)} {log.distance ? `/ ${log.distance}km` : ""})</span></span>
                           ) : '🏃 근무 중...'}
                         </div>
