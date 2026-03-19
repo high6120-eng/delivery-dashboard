@@ -79,9 +79,13 @@ export default function Home() {
   const [coupangEats, setCoupangEats] = useState("");
   const [baemin, setBaemin] = useState("");
   const [etcIncome, setEtcIncome] = useState("");
-  const [etcIncomeMemo, setEtcIncomeMemo] = useState(""); // ✨ 추가됨
+  const [etcIncomeMemo, setEtcIncomeMemo] = useState(""); 
   const [expense, setExpense] = useState("");
-  const [expenseMemo, setExpenseMemo] = useState("");     // ✨ 추가됨
+  const [expenseMemo, setExpenseMemo] = useState("");
+  
+  // ✨ 근무 시간, 주행 거리 수동 입력 확인용 상태
+  const [inputWorkHours, setInputWorkHours] = useState("");
+  const [inputDistance, setInputDistance] = useState("");
 
   const [editLogId, setEditLogId] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
@@ -137,16 +141,37 @@ export default function Home() {
   const handleClockOut = async () => {
     if (!activeLog) return;
     const finalEndTime = endTime || getCurrentTime();
-    let calculatedWorkHours = 0;
-    if (activeLog.start_time) {
+    
+    // ✨ 근무시간 자동 계산 (빈값이면 null)
+    let calcHours = null;
+    if (activeLog.start_time && finalEndTime) {
       const sDate = new Date(`${activeLog.work_date}T${activeLog.start_time}:00`);
       const eDate = new Date(`${endDate}T${finalEndTime}:00`);
       let diffMins = (eDate.getTime() - sDate.getTime()) / (1000 * 60);
       if (diffMins < 0) diffMins += 24 * 60;
-      calculatedWorkHours = Number((diffMins / 60).toFixed(2));
+      calcHours = Number((diffMins / 60).toFixed(2));
     }
+
+    // ✨ 주행거리 자동 계산 (빈값이면 null)
+    let calcDist = null;
+    if (activeLog.start_mileage !== null && activeLog.start_mileage !== "" && endMileage !== "") {
+      calcDist = Number(endMileage) - Number(activeLog.start_mileage);
+    }
+
+    // 🚨 수동 입력 값 검증
+    if (inputWorkHours !== "" && calcHours !== null && Number(inputWorkHours) !== calcHours) {
+      return alert(`⚠️ 업무 시간 오류: 수동 입력 시간(${inputWorkHours}h)과 실제 계산된 시간(${calcHours}h)이 다릅니다.`);
+    }
+    if (inputDistance !== "" && calcDist !== null && Number(inputDistance) !== calcDist) {
+      return alert(`⚠️ 주행 거리 오류: 수동 입력 거리(${inputDistance}km)와 실제 계산된 거리(${calcDist}km)가 다릅니다.`);
+    }
+
+    const finalWorkHours = inputWorkHours !== "" ? Number(inputWorkHours) : (calcHours || 0);
+    const finalDistance = inputDistance !== "" ? Number(inputDistance) : (calcDist || 0);
+
     await supabase.from("delivery_logs").update({
-      end_date: endDate, end_time: finalEndTime, end_mileage: endMileage ? Number(endMileage) : null, work_hours: calculatedWorkHours,
+      end_date: endDate, end_time: finalEndTime, end_mileage: endMileage ? Number(endMileage) : null, 
+      work_hours: finalWorkHours, distance: finalDistance,
       kakao_picker: Number(kakaoPicker) || 0, coupang_eats: Number(coupangEats) || 0, baemin: Number(baemin) || 0,
       etc_income: Number(etcIncome) || 0, etc_income_memo: etcIncomeMemo || null, 
       expense: Number(expense) || 0, expense_memo: expenseMemo || null,
@@ -155,7 +180,8 @@ export default function Home() {
     
     alert(`🏁 정산 완료! 고생하셨습니다.`); 
     setCoupangEats(""); setBaemin(""); setKakaoPicker(""); setEtcIncome(""); setEtcIncomeMemo(""); 
-    setExpense(""); setExpenseMemo(""); setEndTime(""); setEndMileage("");
+    setExpense(""); setExpenseMemo(""); setEndTime(""); setEndMileage(""); 
+    setInputWorkHours(""); setInputDistance("");
     fetchData();
   };
 
@@ -167,32 +193,51 @@ export default function Home() {
 
   const startEdit = (log: any) => { 
     setEditLogId(log.id); 
-    // 수정창 열 때 기본값 세팅 (퇴근 날짜가 없으면 출근 날짜로)
     setEditForm({ ...log, end_date: log.end_date || log.work_date }); 
   };
   
   const handleEditChange = (e: any) => { setEditForm({ ...editForm, [e.target.name]: e.target.value }); };
 
   const saveEdit = async () => {
-    let updatedWorkHours = editForm.work_hours;
+    // ✨ 수정 시 근무시간 자동 계산
+    let calcHours = null;
     if (editForm.start_time && editForm.end_time) {
       const sDate = new Date(`${editForm.work_date}T${editForm.start_time}:00`);
       const eDate = new Date(`${editForm.end_date || editForm.work_date}T${editForm.end_time}:00`);
       let diffMins = (eDate.getTime() - sDate.getTime()) / (1000 * 60);
       if (diffMins < 0) diffMins += 24 * 60;
-      updatedWorkHours = Number((diffMins / 60).toFixed(2));
+      calcHours = Number((diffMins / 60).toFixed(2));
     }
+
+    // ✨ 수정 시 주행거리 자동 계산
+    let calcDist = null;
+    if (editForm.start_mileage !== null && editForm.start_mileage !== "" && editForm.end_mileage !== null && editForm.end_mileage !== "") {
+      calcDist = Number(editForm.end_mileage) - Number(editForm.start_mileage);
+    }
+
+    // 🚨 수정 시 수동 입력 값 검증
+    if (editForm.work_hours !== "" && editForm.work_hours != null && calcHours !== null && Number(editForm.work_hours) !== calcHours) {
+      return alert(`⚠️ 업무 시간 오류: 수동 입력 시간(${editForm.work_hours}h)과 실제 계산된 시간(${calcHours}h)이 다릅니다.`);
+    }
+    if (editForm.distance !== "" && editForm.distance != null && calcDist !== null && Number(editForm.distance) !== calcDist) {
+      return alert(`⚠️ 주행 거리 오류: 수동 입력 거리(${editForm.distance}km)와 실제 계산된 거리(${calcDist}km)가 다릅니다.`);
+    }
+
+    const finalWorkHours = (editForm.work_hours !== "" && editForm.work_hours != null) ? Number(editForm.work_hours) : (calcHours || 0);
+    const finalDistance = (editForm.distance !== "" && editForm.distance != null) ? Number(editForm.distance) : (calcDist || 0);
+
     await supabase.from("delivery_logs").update({
       work_date: editForm.work_date, start_time: editForm.start_time, 
       end_date: editForm.end_date, end_time: editForm.end_time,
-      start_mileage: Number(editForm.start_mileage), end_mileage: Number(editForm.end_mileage),
+      start_mileage: editForm.start_mileage ? Number(editForm.start_mileage) : null, 
+      end_mileage: editForm.end_mileage ? Number(editForm.end_mileage) : null,
       kakao_picker: Number(editForm.kakao_picker), coupang_eats: Number(editForm.coupang_eats), baemin: Number(editForm.baemin),
       etc_income: Number(editForm.etc_income), etc_income_memo: editForm.etc_income_memo, 
       expense: Number(editForm.expense), expense_memo: editForm.expense_memo, 
-      work_hours: updatedWorkHours
+      work_hours: finalWorkHours, distance: finalDistance
     }).eq("id", editLogId);
     
-    setEditLogId(null); fetchData(); alert("✅ 모든 내역이 수정되었습니다.");
+    setEditLogId(null); fetchData(); alert("✅ 일지가 성공적으로 수정 및 계산되었습니다.");
   };
 
   const statsData = useMemo(() => {
@@ -358,12 +403,16 @@ export default function Home() {
                      <input type="number" placeholder="예: 15500" value={endMileage} onChange={(e)=>setEndMileage(e.target.value)} style={inputStyle}/>
                   </div>
                   
-                  {/* ✨ 플랫폼 및 지출/기타수입 내역까지 전부 다 포함 */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "4px", padding: "10px", backgroundColor: "#f9f9f9", borderRadius: "10px", border: "1px dashed #ccc" }}>
+                    <div style={gridItemStyle}><label style={labelStyle}>근무 시간(h) <span style={{color:"#999",fontWeight:"normal"}}>(비워두면 자동)</span></label><input type="number" placeholder="자동 계산" value={inputWorkHours} onChange={(e)=>setInputWorkHours(e.target.value)} style={inputStyle}/></div>
+                    <div style={gridItemStyle}><label style={labelStyle}>주행 거리(km) <span style={{color:"#999",fontWeight:"normal"}}>(비워두면 자동)</span></label><input type="number" placeholder="자동 계산" value={inputDistance} onChange={(e)=>setInputDistance(e.target.value)} style={inputStyle}/></div>
+                  </div>
+
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "4px" }}>
                     <div style={gridItemStyle}><label style={labelStyle}>쿠팡 수입 (원)</label><input type="number" placeholder="입력" value={coupangEats} onChange={(e)=>setCoupangEats(e.target.value)} style={inputStyle}/></div>
                     <div style={gridItemStyle}><label style={labelStyle}>배민 수입 (원)</label><input type="number" placeholder="입력" value={baemin} onChange={(e)=>setBaemin(e.target.value)} style={inputStyle}/></div>
                     <div style={gridItemStyle}><label style={labelStyle}>카카오 수입 (원)</label><input type="number" placeholder="입력" value={kakaoPicker} onChange={(e)=>setKakaoPicker(e.target.value)} style={inputStyle}/></div>
-                    <div style={gridItemStyle}></div> {/* 여백 맞춤용 */}
+                    <div style={gridItemStyle}></div> 
                     
                     <div style={gridItemStyle}><label style={labelStyle}>기타 수입 (원)</label><input type="number" placeholder="금액" value={etcIncome} onChange={(e)=>setEtcIncome(e.target.value)} style={inputStyle}/></div>
                     <div style={gridItemStyle}><label style={labelStyle}>기타 수입 내역</label><input type="text" placeholder="예: 프로모션" value={etcIncomeMemo} onChange={(e)=>setEtcIncomeMemo(e.target.value)} style={inputStyle}/></div>
@@ -406,6 +455,11 @@ export default function Home() {
                         <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>종료 주행(km)</span><input type="number" name="end_mileage" value={editForm.end_mileage || ""} onChange={handleEditChange} style={editInputStyle}/></div>
                       </div>
 
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", padding: "8px", backgroundColor: "#f9f9f9", borderRadius: "8px", border: "1px dashed #ccc" }}>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>근무 시간(h) <span style={{fontSize:"10px"}}>(자동 계산)</span></span><input type="number" name="work_hours" value={editForm.work_hours || ""} onChange={handleEditChange} placeholder="자동" style={editInputStyle}/></div>
+                        <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>주행 거리(km) <span style={{fontSize:"10px"}}>(자동 계산)</span></span><input type="number" name="distance" value={editForm.distance || ""} onChange={handleEditChange} placeholder="자동" style={editInputStyle}/></div>
+                      </div>
+
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                         <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>쿠팡</span><input type="number" name="coupang_eats" value={editForm.coupang_eats || ""} onChange={handleEditChange} style={editInputStyle}/></div>
                         <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>배민</span><input type="number" name="baemin" value={editForm.baemin || ""} onChange={handleEditChange} style={editInputStyle}/></div>
@@ -414,7 +468,6 @@ export default function Home() {
                         <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>카카오</span><input type="number" name="kakao_picker" value={editForm.kakao_picker || ""} onChange={handleEditChange} style={editInputStyle}/></div>
                       </div>
 
-                      {/* ✨ 수정 모드에도 메모 내역 추가 완료 */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                         <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>기타 수입 (원)</span><input type="number" name="etc_income" value={editForm.etc_income || ""} onChange={handleEditChange} style={editInputStyle}/></div>
                         <div style={gridItemStyle}><span style={{fontSize:"11px", color:"#999"}}>기타 내역</span><input type="text" name="etc_income_memo" value={editForm.etc_income_memo || ""} onChange={handleEditChange} style={editInputStyle}/></div>
@@ -437,7 +490,7 @@ export default function Home() {
                         </div>
                         <div style={{ fontSize: "13px", color: "#555", marginTop: "6px" }}>
                           {log.status === 'completed' ? (
-                             <span>✅ <b style={{color:"#0070f3"}}>{total.toLocaleString()}</b>원 <span style={{color:"#999"}}>({log.work_hours}h)</span></span>
+                             <span>✅ <b style={{color:"#0070f3"}}>{total.toLocaleString()}</b>원 <span style={{color:"#999"}}>({log.work_hours}h {log.distance ? `/ ${log.distance}km` : ""})</span></span>
                           ) : '🏃 근무 중...'}
                         </div>
                         {log.expense > 0 && <div style={{ fontSize: "11px", color: "#d90429", marginTop:"4px" }}>지출: {log.expense.toLocaleString()}원 {log.expense_memo ? `(${log.expense_memo})` : ''}</div>}
